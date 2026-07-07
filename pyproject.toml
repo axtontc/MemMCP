@@ -1,0 +1,18 @@
+[project]
+name = "project-2-mcp-memory"
+version = "0.1.0"
+description = "MCP Memory Server"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp",
+    "faiss-cpu",
+    "sentence-transformers",
+    "pydantic",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
