@@ -260,12 +260,30 @@ async def handle_call_tool(
         )
 
 
+async def cron_rebuild_index() -> None:
+    """Background task to periodically rebuild the FAISS index during off-peak hours."""
+    while True:
+        try:
+            # Rebuild every 24 hours (86400 seconds)
+            await asyncio.sleep(86400)
+            logger.info("Executing scheduled FAISS index rebuild...")
+            await retriever.rebuild_index()
+            logger.info("FAISS index rebuild complete.")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error in cron_rebuild_index: {e}")
+            await asyncio.sleep(60)
+
 async def main() -> None:
     """
     Runs the MCP server using stdio transport.
     """
     await db_manager.start()
     await retriever.initialize()
+
+    # Start background cron task for FAISS
+    cron_task = asyncio.create_task(cron_rebuild_index())
 
     try:
         async with stdio_server() as (read_stream, write_stream):
@@ -277,6 +295,7 @@ async def main() -> None:
     except Exception as e:
         logger.critical(f"Server execution failed: {e}")
     finally:
+        cron_task.cancel()
         await db_manager.close()
 
 

@@ -10,7 +10,11 @@ import shutil
 import tempfile
 import unittest
 import sqlite3
+import sys
 from typing import List, Tuple, Dict, Any
+
+# Ensure the root project directory is on the path so 'src' can be imported
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.database import DatabaseManager, DatabaseError
 from src.retrieval import HybridRetriever, RetrievalError
