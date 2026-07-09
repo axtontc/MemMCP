@@ -60,7 +60,7 @@ make run
 ```mermaid
 graph TD
     A[MCP Client] --> B{Bloom-Filter Idempotency Gate}
-    B -->|Duplicate Request| C[Drop (Idempotent Return)]
+    B -->|Duplicate Request| C["Drop (Idempotent Return)"]
     B -->|New Request| D[Vectorization]
     D --> E[FAISS Hybrid RRF Search]
     E --> F[SQLite WAL Merkle-Root Ledger]
