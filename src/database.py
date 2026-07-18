@@ -4,13 +4,13 @@ SQLite connection manager and serialized write queue for MemMCP.
 Provides concurrent multi-reader access and thread-safe serialized writing in WAL mode.
 """
 
-from typing import Any, List, Tuple, Optional
 import asyncio
-import sqlite3
 import json
 import logging
 import pathlib
+import sqlite3
 from datetime import datetime, timezone
+from typing import Any, List, Optional, Tuple
 
 logger = logging.getLogger("memmcp.database")
 
@@ -26,9 +26,7 @@ class MutationRequest:
     Encapsulates a database write operation or a batch of operations.
     """
 
-    def __init__(
-        self, queries: List[Tuple[str, List[Any]]], future: asyncio.Future[Any]
-    ) -> None:
+    def __init__(self, queries: List[Tuple[str, List[Any]]], future: asyncio.Future[Any]) -> None:
         self.queries = queries
         self.future = future
 
@@ -62,9 +60,7 @@ class DatabaseManager:
             raise DatabaseError("DatabaseManager is already running.")
         self._running = True
         self._worker_task = asyncio.create_task(self._writer_worker())
-        logger.info(
-            f"DatabaseManager started. db_path={self.db_path}, log_path={self.log_path}"
-        )
+        logger.info(f"DatabaseManager started. db_path={self.db_path}, log_path={self.log_path}")
 
     async def close(self) -> None:
         """
@@ -83,9 +79,7 @@ class DatabaseManager:
             self._worker_task = None
         logger.info("DatabaseManager closed.")
 
-    async def execute_read(
-        self, query: str, params: Optional[List[Any]] = None
-    ) -> List[sqlite3.Row]:
+    async def execute_read(self, query: str, params: Optional[List[Any]] = None) -> List[sqlite3.Row]:
         """
         Executes a read query concurrently using asyncio.to_thread to avoid blocking the event loop.
         Uses a separate, short-lived read connection.
@@ -116,9 +110,7 @@ class DatabaseManager:
 
         return await asyncio.to_thread(_read)
 
-    async def execute_write(
-        self, query: str, params: Optional[List[Any]] = None
-    ) -> Any:
+    async def execute_write(self, query: str, params: Optional[List[Any]] = None) -> Any:
         """
         Enqueues a single SQL mutation (INSERT, UPDATE, DELETE) and awaits completion.
 
@@ -143,9 +135,7 @@ class DatabaseManager:
             The result of the batch operation (e.g. number of rows inserted/updated, or None).
         """
         if not self._running:
-            raise DatabaseError(
-                "DatabaseManager is not running. Call start() before executing writes."
-            )
+            raise DatabaseError("DatabaseManager is not running. Call start() before executing writes.")
 
         loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
@@ -227,9 +217,7 @@ class DatabaseManager:
                         cursor.execute(sql, params)
 
                     # Log write to memory_wal.log before commit (WAL design)
-                    timestamp = (
-                        datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-                    )
+                    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
                     log_entry = {"timestamp": timestamp, "queries": request.queries}
 
                     # Ensure directory for log file exists
@@ -246,13 +234,9 @@ class DatabaseManager:
                     try:
                         conn.rollback()
                     except sqlite3.Error as rollback_err:
-                        logger.error(
-                            f"Failed to rollback database transaction: {rollback_err}"
-                        )
+                        logger.error(f"Failed to rollback database transaction: {rollback_err}")
                     logger.error(f"Database mutation failed: {err}")
-                    request.future.set_exception(
-                        DatabaseError(f"Database write transaction failed: {err}")
-                    )
+                    request.future.set_exception(DatabaseError(f"Database write transaction failed: {err}"))
                 finally:
                     self.queue.task_done()
         except sqlite3.Error as e:

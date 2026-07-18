@@ -44,9 +44,7 @@ async def store_memory_impl(
         idempotency_key = hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     # Query first to achieve idempotency and prevent throwing duplicate error logs
-    existing = await db_manager.execute_read(
-        "SELECT id FROM memories WHERE idempotency_key = ?;", [idempotency_key]
-    )
+    existing = await db_manager.execute_read("SELECT id FROM memories WHERE idempotency_key = ?;", [idempotency_key])
     if existing:
         return existing[0]["id"]
 
@@ -183,7 +181,10 @@ async def handle_list_tools() -> List[types.Tool]:
                 "properties": {
                     "memories": {
                         "type": "array",
-                        "description": "A list of memories, each containing 'content', and optional 'idempotency_key' and 'metadata'.",
+                        "description": (
+                            "A list of memories, each containing 'content', "
+                            "and optional 'idempotency_key' and 'metadata'."
+                        ),
                         "items": {
                             "type": "object",
                             "properties": {
@@ -211,9 +212,7 @@ async def handle_list_tools() -> List[types.Tool]:
 
 
 @server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: Dict[str, Any]
-) -> types.CallToolResult:
+async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> types.CallToolResult:
     """
     Handles tool call invocations.
     """
@@ -222,28 +221,20 @@ async def handle_call_tool(
             query = arguments["query"]
             limit = arguments.get("limit", 5)
             results = await retriever.search(query=query, limit=limit)
-            return types.CallToolResult(
-                content=[types.TextContent(type="text", text=json.dumps(results))]
-            )
+            return types.CallToolResult(content=[types.TextContent(type="text", text=json.dumps(results))])
 
         elif name == "store_memory":
             content = arguments["content"]
             idempotency_key = arguments.get("idempotency_key")
             metadata = arguments.get("metadata")
 
-            memory_id = await store_memory_impl(
-                content=content, idempotency_key=idempotency_key, metadata=metadata
-            )
-            return types.CallToolResult(
-                content=[types.TextContent(type="text", text=memory_id)]
-            )
+            memory_id = await store_memory_impl(content=content, idempotency_key=idempotency_key, metadata=metadata)
+            return types.CallToolResult(content=[types.TextContent(type="text", text=memory_id)])
 
         elif name == "store_memories_batch":
             memories_list = arguments["memories"]
             memory_ids = await store_memories_batch_impl(memories_list)
-            return types.CallToolResult(
-                content=[types.TextContent(type="text", text=json.dumps(memory_ids))]
-            )
+            return types.CallToolResult(content=[types.TextContent(type="text", text=json.dumps(memory_ids))])
 
         else:
             return types.CallToolResult(
@@ -252,9 +243,7 @@ async def handle_call_tool(
             )
     except Exception as e:
         logger.error(f"Error executing tool {name}: {e}")
-        return types.CallToolResult(
-            content=[types.TextContent(type="text", text=str(e))], isError=True
-        )
+        return types.CallToolResult(content=[types.TextContent(type="text", text=str(e))], isError=True)
 
 
 async def cron_rebuild_index() -> None:
@@ -285,9 +274,7 @@ async def main() -> None:
 
     try:
         async with stdio_server() as (read_stream, write_stream):
-            await server.run(
-                read_stream, write_stream, server.create_initialization_options()
-            )
+            await server.run(read_stream, write_stream, server.create_initialization_options())
     except Exception as e:
         logger.critical(f"Server execution failed: {e}")
     finally:

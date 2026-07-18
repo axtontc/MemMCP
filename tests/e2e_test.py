@@ -6,8 +6,8 @@ This acts as a mock MCP Client, launching the server as a subprocess and interac
 import asyncio
 import json
 import logging
-import sys
 import os
+import sys
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -55,9 +55,7 @@ async def run_e2e_test():
 
             # Test 2: Recall memory
             logger.info("Test 2: recall_memories tool...")
-            recall_res = await session.call_tool(
-                "recall_memories", arguments={"query": "stdio transport", "limit": 5}
-            )
+            recall_res = await session.call_tool("recall_memories", arguments={"query": "stdio transport", "limit": 5})
 
             if recall_res.isError:
                 logger.error(f"Failed to recall memories: {recall_res.content}")
@@ -70,9 +68,7 @@ async def run_e2e_test():
             if found:
                 logger.info("SUCCESS: E2E Pipeline verified.")
             else:
-                logger.error(
-                    "FAILURE: Memory was stored but not found in recall results."
-                )
+                logger.error("FAILURE: Memory was stored but not found in recall results.")
                 sys.exit(1)
 
 

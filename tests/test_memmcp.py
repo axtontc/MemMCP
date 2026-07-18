@@ -7,17 +7,17 @@ Verifies concurrent writes, transaction serialization, WAL audit logging, and RR
 import asyncio
 import os
 import shutil
+import sys
 import tempfile
 import unittest
-import sys
 
 # Ensure the root project directory is on the path so 'src' can be imported
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.database import DatabaseManager
-from src.retrieval import HybridRetriever
-from src.pruner import ContextPruner
 import src.server as server_mod
+from src.database import DatabaseManager
+from src.pruner import ContextPruner
+from src.retrieval import HybridRetriever
 
 
 class TestDatabaseManager(unittest.IsolatedAsyncioTestCase):
@@ -60,36 +60,26 @@ class TestDatabaseManager(unittest.IsolatedAsyncioTestCase):
         )
 
         # Read back from memories table
-        rows = await self.db.execute_read(
-            "SELECT content FROM memories WHERE id = ?;", [memory_id]
-        )
+        rows = await self.db.execute_read("SELECT content FROM memories WHERE id = ?;", [memory_id])
         self.assertEqual(rows[0]["content"], content)
 
         # Read back from FTS table (should be populated automatically by trigger)
-        fts_rows = await self.db.execute_read(
-            "SELECT content FROM memories_fts WHERE id = ?;", [memory_id]
-        )
+        fts_rows = await self.db.execute_read("SELECT content FROM memories_fts WHERE id = ?;", [memory_id])
         self.assertEqual(fts_rows[0]["content"], content)
 
         # Update the memory
         new_content = "Updated content for SQLite FTS5"
-        await self.db.execute_write(
-            "UPDATE memories SET content = ? WHERE id = ?;", [new_content, memory_id]
-        )
+        await self.db.execute_write("UPDATE memories SET content = ? WHERE id = ?;", [new_content, memory_id])
 
         # Verify FTS updated
-        fts_rows_updated = await self.db.execute_read(
-            "SELECT content FROM memories_fts WHERE id = ?;", [memory_id]
-        )
+        fts_rows_updated = await self.db.execute_read("SELECT content FROM memories_fts WHERE id = ?;", [memory_id])
         self.assertEqual(fts_rows_updated[0]["content"], new_content)
 
         # Delete the memory
         await self.db.execute_write("DELETE FROM memories WHERE id = ?;", [memory_id])
 
         # Verify FTS deleted
-        fts_rows_deleted = await self.db.execute_read(
-            "SELECT content FROM memories_fts WHERE id = ?;", [memory_id]
-        )
+        fts_rows_deleted = await self.db.execute_read("SELECT content FROM memories_fts WHERE id = ?;", [memory_id])
         self.assertEqual(len(fts_rows_deleted), 0)
 
     async def test_concurrent_writes(self) -> None:
@@ -129,9 +119,7 @@ class TestDatabaseManager(unittest.IsolatedAsyncioTestCase):
         await self.db.execute_batch_write(queries)
 
         # Check they exist
-        rows = await self.db.execute_read(
-            "SELECT COUNT(*) FROM memories WHERE id IN ('batch-1', 'batch-2');"
-        )
+        rows = await self.db.execute_read("SELECT COUNT(*) FROM memories WHERE id IN ('batch-1', 'batch-2');")
         self.assertEqual(rows[0][0], 2)
 
         # Test rollback on duplicate key
@@ -150,9 +138,7 @@ class TestDatabaseManager(unittest.IsolatedAsyncioTestCase):
             await self.db.execute_batch_write(failed_queries)
 
         # Verify batch-3 was rolled back and not inserted
-        rows_rollback = await self.db.execute_read(
-            "SELECT COUNT(*) FROM memories WHERE id = 'batch-3';"
-        )
+        rows_rollback = await self.db.execute_read("SELECT COUNT(*) FROM memories WHERE id = 'batch-3';")
         self.assertEqual(rows_rollback[0][0], 0)
 
     async def test_audit_logging(self) -> None:
@@ -241,9 +227,7 @@ class TestHybridRetriever(unittest.IsolatedAsyncioTestCase):
         """Verifies dynamic indexing additions and deletions align properly."""
         # Insert to DB first, then retriever
         new_id = "doc_f"
-        new_content = (
-            "A new memory relating to cognitive architectures and neural networks."
-        )
+        new_content = "A new memory relating to cognitive architectures and neural networks."
         await self.db.execute_write(
             "INSERT INTO memories (id, content, idempotency_key, metadata) VALUES (?, ?, ?, ?);",
             [new_id, new_content, "key_f", "{}"],
@@ -304,9 +288,7 @@ class TestContextPruner(unittest.TestCase):
             "USER: What is the weather today?"
         )
         pruned = self.pruner.prune_context(text, max_tokens=25, threshold_tokens=10)
-        self.assertLess(
-            self.pruner.estimate_tokens(pruned), self.pruner.estimate_tokens(text)
-        )
+        self.assertLess(self.pruner.estimate_tokens(pruned), self.pruner.estimate_tokens(text))
         self.assertTrue(pruned.startswith("SYSTEM: You are a helpful assistant."))
         self.assertTrue(pruned.endswith("USER: What is the weather today?"))
 
@@ -389,9 +371,7 @@ class TestMCPServer(unittest.IsolatedAsyncioTestCase):
                 "metadata": {"importance": "high"},
             },
         ]
-        res = await server_mod.handle_call_tool(
-            "store_memories_batch", {"memories": memories}
-        )
+        res = await server_mod.handle_call_tool("store_memories_batch", {"memories": memories})
         self.assertFalse(res.isError)
         import json
 
@@ -407,13 +387,9 @@ class TestMCPServer(unittest.IsolatedAsyncioTestCase):
     async def test_recall_memories_tool(self) -> None:
         """Verifies that recall_memories retrieves relevant memories."""
         content = "Deep learning uses neural networks to learn representations."
-        await server_mod.handle_call_tool(
-            "store_memory", {"content": content, "idempotency_key": "idem-r1"}
-        )
+        await server_mod.handle_call_tool("store_memory", {"content": content, "idempotency_key": "idem-r1"})
 
-        res = await server_mod.handle_call_tool(
-            "recall_memories", {"query": "neural networks", "limit": 2}
-        )
+        res = await server_mod.handle_call_tool("recall_memories", {"query": "neural networks", "limit": 2})
         self.assertFalse(res.isError)
         import json
 

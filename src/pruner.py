@@ -30,9 +30,7 @@ class ContextPruner:
             return 0
         return math.ceil(len(words) / 0.75)
 
-    def prune_context(
-        self, context_text: str, max_tokens: int = 4000, threshold_tokens: int = 20000
-    ) -> str:
+    def prune_context(self, context_text: str, max_tokens: int = 4000, threshold_tokens: int = 20000) -> str:
         """
         Prunes the context text to fit within max_tokens if the estimated tokens exceed threshold_tokens.
         Prioritizes retaining the first and last lines (system prompts/latest messages)
@@ -83,9 +81,7 @@ class ContextPruner:
 
         # Always try to keep the first and last lines (system instructions and latest query)
         always_keep_indices = {0, len(lines) - 1} if len(lines) > 1 else {0}
-        candidates = [
-            item for item in line_scores if item[0] not in always_keep_indices
-        ]
+        candidates = [item for item in line_scores if item[0] not in always_keep_indices]
         candidates.sort(key=lambda x: x[1], reverse=True)
 
         # Select lines that fit within max_tokens

@@ -4,13 +4,15 @@ Dual-index hybrid retrieval using SentenceTransformers + FAISS and SQLite FTS5 w
 Handles dense semantic vector matching and sparse lexical matching, fused deterministically.
 """
 
-from typing import Any, Dict, List, Optional
 import asyncio
-import logging
 import json
-import numpy as np
+import logging
+from typing import Any, Dict, List, Optional
+
 import faiss
+import numpy as np
 from sentence_transformers import SentenceTransformer
+
 from src.database import DatabaseManager
 
 logger = logging.getLogger("memmcp.retrieval")
@@ -49,9 +51,7 @@ class HybridRetriever:
         self.index: Optional[faiss.IndexFlatIP] = None
         self.index_to_id: List[str] = []
         self.id_to_index: Dict[str, int] = {}
-        self.lock = (
-            asyncio.Lock()
-        )  # Synchronizes modifications and searches on FAISS / ID mapping
+        self.lock = asyncio.Lock()  # Synchronizes modifications and searches on FAISS / ID mapping
 
     async def initialize(self) -> None:
         """
@@ -88,9 +88,7 @@ class HybridRetriever:
         """
         try:
             # Fetch all active memories from the database
-            rows = await self.db_manager.execute_read(
-                "SELECT id, content FROM memories;"
-            )
+            rows = await self.db_manager.execute_read("SELECT id, content FROM memories;")
 
             # Initialize FAISS IndexFlatIP for cosine similarity (inner product on L2 normalized vectors)
             self.index = faiss.IndexFlatIP(384)
@@ -98,9 +96,7 @@ class HybridRetriever:
             self.id_to_index = {}
 
             if not rows:
-                logger.info(
-                    "No memories found in the database. Created empty FAISS index."
-                )
+                logger.info("No memories found in the database. Created empty FAISS index.")
                 return
 
             ids = [row["id"] for row in rows]
@@ -110,9 +106,7 @@ class HybridRetriever:
             if self.model is None:
                 raise RetrievalError("SentenceTransformer model is not loaded.")
 
-            embeddings_list = await asyncio.to_thread(
-                self.model.encode, contents, show_progress_bar=False
-            )
+            embeddings_list = await asyncio.to_thread(self.model.encode, contents, show_progress_bar=False)
 
             embeddings = np.array(embeddings_list).astype("float32")
             faiss.normalize_L2(embeddings)
@@ -136,9 +130,7 @@ class HybridRetriever:
         """
         async with self.lock:
             if self.model is None or self.index is None:
-                raise RetrievalError(
-                    "HybridRetriever is not fully initialized. Call initialize() first."
-                )
+                raise RetrievalError("HybridRetriever is not fully initialized. Call initialize() first.")
 
             # If the memory already exists, trigger an unlocked rebuild to handle the update/overwrite cleanly
             if memory_id in self.id_to_index:
@@ -146,9 +138,7 @@ class HybridRetriever:
             else:
                 try:
                     # Generate embedding in thread pool
-                    embedding_list = await asyncio.to_thread(
-                        self.model.encode, [content], show_progress_bar=False
-                    )
+                    embedding_list = await asyncio.to_thread(self.model.encode, [content], show_progress_bar=False)
                     embedding = np.array(embedding_list).astype("float32")
                     faiss.normalize_L2(embedding)
 
@@ -156,12 +146,8 @@ class HybridRetriever:
                     self.index_to_id.append(memory_id)
                     self.id_to_index[memory_id] = len(self.index_to_id) - 1
                 except Exception as e:
-                    logger.error(
-                        f"Failed to add memory {memory_id} to dense index: {e}"
-                    )
-                    raise RetrievalError(
-                        f"Add memory to dense index failed: {e}"
-                    ) from e
+                    logger.error(f"Failed to add memory {memory_id} to dense index: {e}")
+                    raise RetrievalError(f"Add memory to dense index failed: {e}") from e
 
     async def delete_memory(self, memory_id: str) -> None:
         """
@@ -203,9 +189,7 @@ class HybridRetriever:
             sorted by descending RRF score.
         """
         if self.model is None or self.index is None:
-            raise RetrievalError(
-                "HybridRetriever is not fully initialized. Call initialize() first."
-            )
+            raise RetrievalError("HybridRetriever is not fully initialized. Call initialize() first.")
 
         # 1. Sparse search query execution
         fts_results: List[str] = []
@@ -218,9 +202,7 @@ class HybridRetriever:
                 )
                 fts_results = [row["id"] for row in rows]
             except Exception as fts_err:
-                logger.warning(
-                    f"FTS5 match failed. Falling back to LIKE matching: {fts_err}"
-                )
+                logger.warning(f"FTS5 match failed. Falling back to LIKE matching: {fts_err}")
                 try:
                     # Fallback to standard SQL LIKE matching if FTS5 operational error occurs
                     rows = await self.db_manager.execute_read(
@@ -235,9 +217,7 @@ class HybridRetriever:
         dense_results: List[str] = []
         if self.index.ntotal > 0:
             try:
-                q_emb = await asyncio.to_thread(
-                    self.model.encode, [query], show_progress_bar=False
-                )
+                q_emb = await asyncio.to_thread(self.model.encode, [query], show_progress_bar=False)
                 q_emb_arr = np.array(q_emb).astype("float32")
                 faiss.normalize_L2(q_emb_arr)
 
@@ -281,12 +261,8 @@ class HybridRetriever:
             )
             db_memories = {row["id"]: row for row in db_rows}
         except Exception as read_err:
-            logger.error(
-                f"Failed to fetch memories metadata for search results: {read_err}"
-            )
-            raise RetrievalError(
-                f"Memories metadata lookup failed: {read_err}"
-            ) from read_err
+            logger.error(f"Failed to fetch memories metadata for search results: {read_err}")
+            raise RetrievalError(f"Memories metadata lookup failed: {read_err}") from read_err
 
         final_results = []
         for doc_id, score in top_docs:
@@ -297,9 +273,7 @@ class HybridRetriever:
                     try:
                         metadata_dict = json.loads(row["metadata"])
                     except Exception as json_err:
-                        logger.error(
-                            f"Failed to parse metadata JSON for memory {doc_id}: {json_err}"
-                        )
+                        logger.error(f"Failed to parse metadata JSON for memory {doc_id}: {json_err}")
 
                 final_results.append(
                     {
