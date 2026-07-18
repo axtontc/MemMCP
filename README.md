@@ -181,6 +181,27 @@ Retrieves memories matching a search query using Reciprocal Rank Fusion.
 
 ---
 
+## 📖 API & Core Functions Reference
+
+### `src/database.py`
+These functions manage SQLite connection states, memory inserts, and migrations:
+
+| Function / Routine | Parameters | Description |
+|---|---|---|
+| `init_db(db_path)` | `str` / `Path` | Initializes the SQLite database, executes migration scripts, and enables WAL mode. |
+| `add_memory(content, id_key)` | `str`, `str` | Inserts a raw memory record into the table and updates the FTS5 search index. |
+| `delete_memory(memory_id)` | `str` | Deletes a memory record by its primary key. |
+
+### `src/retrieval.py`
+These functions run queries against the semantic and keyword indices:
+
+| Function / Routine | Parameters | Description |
+|---|---|---|
+| `search_memories(query, limit)` | `str`, `int` | Runs semantic and lexical search, blends results via Reciprocal Rank Fusion, and returns top nodes. |
+| `rebuild_index()` | None | Reads all table records, recomputes vector embeddings, and serializes the FAISS index. |
+
+---
+
 ## 📊 Comparison
 
 | Metric / Capability | Pinecone / Cloud Vector | FAISS-only | **MemMCP** |
@@ -195,14 +216,24 @@ Retrieves memories matching a search query using Reciprocal Rank Fusion.
 ---
 
 ## 🧰 Tech Stack
-- **Language**: Python 3.11+
-- **Protocol**: Model Context Protocol (MCP) stdio
-- **Vector Search**: FAISS (CPU-bound)
-- **Embeddings**: `sentence-transformers` (`all-MiniLM-L6-v2`)
-- **ACID Store**: SQLite 3 (WAL + FTS5)
-- **Dependency Manager**: uv + hatchling
-- **Formatting & Linting**: Ruff
-- **Testing**: pytest + pytest-asyncio
+
+* **Language**: Python 3.11+
+* **Vector Search**: FAISS CPU
+* **Embeddings**: `sentence-transformers` (`all-MiniLM-L6-v2`)
+* **Database**: SQLite 3 (WAL mode + FTS5 full-text extension)
+* **Dev tools**: pytest, pytest-asyncio, Ruff, mypy
+
+---
+
+## 🗺️ Roadmap
+
+- [x] SentencesTransformer semantic vector indexing
+- [x] Full-Text-Search FTS5 keyword matching
+- [x] Deduplication gate with Bloom filters
+- [x] Reciprocal Rank Fusion (RRF) blending algorithm
+- [ ] **Distributed Replication** — Sync memory states across swarm nodes using Raft consensus
+- [ ] **Multi-tenant Spaces** — Provide isolated user space environments and custom credentials keys
+- [ ] **Timeline Visualizer Dashboard** — Open-source local dashboard showing memories timeline maps
 
 ---
 
@@ -231,7 +262,7 @@ MemMCP belongs to a suite of interconnected AI agent utilities:
 
 ## 📜 License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) file for details. Copyright (c) 2026 Axton Carroll.
 
 ---
 
