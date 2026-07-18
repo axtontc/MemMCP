@@ -16,8 +16,8 @@ import mcp.types as types
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 
-from src.database import DatabaseManager, DatabaseError
-from src.retrieval import HybridRetriever, RetrievalError
+from src.database import DatabaseManager
+from src.retrieval import HybridRetriever
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +35,7 @@ server = Server(name="MemMCP")
 async def store_memory_impl(
     content: str,
     idempotency_key: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Business logic for storing a single memory.
@@ -45,8 +45,7 @@ async def store_memory_impl(
 
     # Query first to achieve idempotency and prevent throwing duplicate error logs
     existing = await db_manager.execute_read(
-        "SELECT id FROM memories WHERE idempotency_key = ?;",
-        [idempotency_key]
+        "SELECT id FROM memories WHERE idempotency_key = ?;", [idempotency_key]
     )
     if existing:
         return existing[0]["id"]
@@ -57,7 +56,7 @@ async def store_memory_impl(
     # Perform insertion
     await db_manager.execute_write(
         "INSERT INTO memories (id, content, idempotency_key, metadata) VALUES (?, ?, ?, ?);",
-        [memory_id, content, idempotency_key, metadata_str]
+        [memory_id, content, idempotency_key, metadata_str],
     )
     # Update dense index
     await retriever.add_memory(memory_id, content)
@@ -83,7 +82,7 @@ async def store_memories_batch_impl(memories: List[Dict[str, Any]]) -> List[str]
         placeholders = ",".join("?" for _ in keys)
         existing_rows = await db_manager.execute_read(
             f"SELECT id, idempotency_key FROM memories WHERE idempotency_key IN ({placeholders});",
-            keys
+            keys,
         )
         existing_map = {row["idempotency_key"]: row["id"] for row in existing_rows}
 
@@ -114,10 +113,12 @@ async def store_memories_batch_impl(memories: List[Dict[str, Any]]) -> List[str]
         result_ids.append(memory_id)
 
         metadata_str = json.dumps(m.get("metadata") or {})
-        queries.append((
-            "INSERT INTO memories (id, content, idempotency_key, metadata) VALUES (?, ?, ?, ?);",
-            [memory_id, content, k, metadata_str]
-        ))
+        queries.append(
+            (
+                "INSERT INTO memories (id, content, idempotency_key, metadata) VALUES (?, ?, ?, ?);",
+                [memory_id, content, k, metadata_str],
+            )
+        )
 
     # 4. Perform execution and rebuild index
     if queries:
@@ -141,16 +142,16 @@ async def handle_list_tools() -> List[types.Tool]:
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The search query to match against memories."
+                        "description": "The search query to match against memories.",
                     },
                     "limit": {
                         "type": "integer",
                         "description": "The maximum number of memories to return.",
-                        "default": 5
-                    }
+                        "default": 5,
+                    },
                 },
-                "required": ["query"]
-            }
+                "required": ["query"],
+            },
         ),
         types.Tool(
             name="store_memory",
@@ -160,19 +161,19 @@ async def handle_list_tools() -> List[types.Tool]:
                 "properties": {
                     "content": {
                         "type": "string",
-                        "description": "The text content of the memory to store."
+                        "description": "The text content of the memory to store.",
                     },
                     "idempotency_key": {
                         "type": "string",
-                        "description": "Optional unique key to prevent duplicate storage."
+                        "description": "Optional unique key to prevent duplicate storage.",
                     },
                     "metadata": {
                         "type": "object",
-                        "description": "Optional structured metadata dictionary."
-                    }
+                        "description": "Optional structured metadata dictionary.",
+                    },
                 },
-                "required": ["content"]
-            }
+                "required": ["content"],
+            },
         ),
         types.Tool(
             name="store_memories_batch",
@@ -188,31 +189,30 @@ async def handle_list_tools() -> List[types.Tool]:
                             "properties": {
                                 "content": {
                                     "type": "string",
-                                    "description": "The text content of the memory."
+                                    "description": "The text content of the memory.",
                                 },
                                 "idempotency_key": {
                                     "type": "string",
-                                    "description": "Optional unique key."
+                                    "description": "Optional unique key.",
                                 },
                                 "metadata": {
                                     "type": "object",
-                                    "description": "Optional metadata dictionary."
-                                }
+                                    "description": "Optional metadata dictionary.",
+                                },
                             },
-                            "required": ["content"]
-                        }
+                            "required": ["content"],
+                        },
                     }
                 },
-                "required": ["memories"]
-            }
-        )
+                "required": ["memories"],
+            },
+        ),
     ]
 
 
 @server.call_tool()
 async def handle_call_tool(
-    name: str,
-    arguments: Dict[str, Any]
+    name: str, arguments: Dict[str, Any]
 ) -> types.CallToolResult:
     """
     Handles tool call invocations.
@@ -232,9 +232,7 @@ async def handle_call_tool(
             metadata = arguments.get("metadata")
 
             memory_id = await store_memory_impl(
-                content=content,
-                idempotency_key=idempotency_key,
-                metadata=metadata
+                content=content, idempotency_key=idempotency_key, metadata=metadata
             )
             return types.CallToolResult(
                 content=[types.TextContent(type="text", text=memory_id)]
@@ -250,13 +248,12 @@ async def handle_call_tool(
         else:
             return types.CallToolResult(
                 content=[types.TextContent(type="text", text=f"Unknown tool: {name}")],
-                isError=True
+                isError=True,
             )
     except Exception as e:
         logger.error(f"Error executing tool {name}: {e}")
         return types.CallToolResult(
-            content=[types.TextContent(type="text", text=str(e))],
-            isError=True
+            content=[types.TextContent(type="text", text=str(e))], isError=True
         )
 
 
@@ -275,6 +272,7 @@ async def cron_rebuild_index() -> None:
             logger.error(f"Error in cron_rebuild_index: {e}")
             await asyncio.sleep(60)
 
+
 async def main() -> None:
     """
     Runs the MCP server using stdio transport.
@@ -288,9 +286,7 @@ async def main() -> None:
     try:
         async with stdio_server() as (read_stream, write_stream):
             await server.run(
-                read_stream,
-                write_stream,
-                server.create_initialization_options()
+                read_stream, write_stream, server.create_initialization_options()
             )
     except Exception as e:
         logger.critical(f"Server execution failed: {e}")

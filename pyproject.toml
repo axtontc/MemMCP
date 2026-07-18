@@ -1,8 +1,22 @@
 [project]
-name = "project-2-mcp-memory"
-version = "0.1.0"
-description = "MCP Memory Server"
+name = "memmcp"
+version = "1.0.0"
+description = "Deterministic, BFT-Hardened MCP Memory Server for Agent Swarms"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Axton Carroll" }
+]
+keywords = [
+    "mcp",
+    "mcp-server",
+    "memory",
+    "agentic-workflows",
+    "faiss",
+    "sqlite",
+    "vector-database"
+]
 dependencies = [
     "mcp",
     "faiss-cpu",
@@ -21,4 +35,20 @@ build-backend = "hatchling.build"
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "ruff>=0.15.22",
+    "mypy>=1.15.0",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true
+warn_unused_configs = true
