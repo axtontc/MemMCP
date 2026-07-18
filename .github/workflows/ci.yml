@@ -33,9 +33,9 @@ jobs:
 
       - name: Check formatting and linting
         run: |
-          uv pip install ruff
-          uv run ruff check .
-          uv run ruff format . --check
+          uvx ruff check .
+          uvx ruff format . --check
+
 
   test:
     name: Test (Python ${{ matrix.python-version }})
